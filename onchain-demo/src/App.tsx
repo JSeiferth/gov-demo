@@ -87,30 +87,13 @@ export default function App() {
                   Treasury vesting
                 </p>
                 <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-zinc-900 md:text-5xl md:leading-[1.1]">
-                  Model how OP moves from Foundation commitment to DAO—and
-                  from treasury to Labs.
+                  Model how OP moves from the Foundation to the DAO and
+                  from the DAO to OP Labs.
                 </h1>
                 <p className="mt-6 max-w-2xl text-lg leading-relaxed text-zinc-600">
-                  <strong className="font-medium text-zinc-800">
-                    Foundation → DAO vesting
-                  </strong>{' '}
-                  uses the{' '}
-                  <strong className="font-medium text-zinc-800">
-                    Foundation DAO Commitment (FDC)
-                  </strong>{' '}
-                  plus the{' '}
-                  <strong className="font-medium text-zinc-800">
-                    Governance Claimer
-                  </strong>
-                  .{' '}
-                  <strong className="font-medium text-zinc-800">
-                    DAO → Labs
-                  </strong>{' '}
-                  uses the{' '}
-                  <strong className="font-medium text-zinc-800">
-                    Labs Allowance Distributor (LAD)
-                  </strong>
-                  . The live model runs a clock so balances accrue continuously.
+                  We&apos;re moving the funding of Labs onchain, giving the DAO
+                  direct control over Labs funding and minimizing Foundation
+                  discretion.
                 </p>
               </div>
             </section>

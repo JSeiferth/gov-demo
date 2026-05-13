@@ -38,7 +38,7 @@ function SnapshotHeader({
         Live snapshot
       </p>
       <h2 className="mt-1 text-lg font-semibold tracking-tight text-zinc-900">
-        Where the tokens sit now
+        Simulate funding flows
       </h2>
       <p className="mt-2 text-xs leading-relaxed text-zinc-500">
         Numbers tick as time runs. Technical names for each step are in the
@@ -562,11 +562,6 @@ export function VestingSimulator() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-14">
-      <p className="text-sm leading-relaxed text-zinc-600 lg:text-center">
-        Each section pairs the live snapshot with the controls that move those
-        numbers. On a phone, snapshot blocks appear above their matching panel.
-      </p>
-
       <PairedRow
         left={
           <>
