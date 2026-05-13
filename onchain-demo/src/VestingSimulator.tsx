@@ -133,7 +133,8 @@ function StockDao({ daoTreasuryBalance }: { daoTreasuryBalance: number }) {
         {formatOp(daoTreasuryBalance)}
       </p>
       <p className="mt-1 text-xs text-zinc-500">
-        Tokens the DAO holds (illustrative Timelock balance).
+        In this demo: OP the DAO has received from the FDC minus what LAD has
+        paid to Labs (no separate starting balance).
       </p>
       <p className="mt-2 border-t border-zinc-200/80 pt-2 text-[11px] leading-relaxed text-zinc-400">
         Spec: proceeds from FDC claims land in the DAO treasury / Timelock; LAD
@@ -225,7 +226,6 @@ export function VestingSimulator() {
   const [daoClaimBatch, setDaoClaimBatch] = useState(500_000)
   const [fdcClaimedToDao, setFdcClaimedToDao] = useState(0)
 
-  const [initialTreasury, setInitialTreasury] = useState(2_000_000)
   const [ladRatePerDay, setLadRatePerDay] = useState(35_000)
   const [labsClaimed, setLabsClaimed] = useState(0)
   const [ladTransferredFromTreasury, setLadTransferredFromTreasury] =
@@ -270,10 +270,9 @@ export function VestingSimulator() {
   )
 
   const daoTreasuryBalance = useMemo(() => {
-    const b =
-      initialTreasury + fdcClaimedToDao - ladTransferredFromTreasury
+    const b = fdcClaimedToDao - ladTransferredFromTreasury
     return Math.max(0, b)
-  }, [initialTreasury, fdcClaimedToDao, ladTransferredFromTreasury])
+  }, [fdcClaimedToDao, ladTransferredFromTreasury])
 
   const totalLadAccruedFromStream = ladRatePerDay * simElapsedDays
   const ladAccruedUnclaimed = Math.max(
@@ -510,27 +509,6 @@ export function VestingSimulator() {
         from the Timelock <code className="text-zinc-700">TOKEN_SOURCE</code>.
       </p>
       <div className="mt-5 space-y-5">
-        <label className="block">
-          <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Other OP already in the DAO treasury
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={25_000_000}
-            step={500_000}
-            value={initialTreasury}
-            onChange={(e) => setInitialTreasury(Number(e.target.value))}
-            className="mt-2 w-full accent-zinc-900"
-          />
-          <div className="mt-1 text-right font-mono text-sm text-zinc-900">
-            {formatOp(initialTreasury)} OP
-          </div>
-          <p className="mt-1 text-[11px] text-zinc-500">
-            Illustrative opening Timelock balance excluding proceeds from FDC
-            claims in this run.
-          </p>
-        </label>
         <label className="block">
           <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
             Daily rate to Op Labs

@@ -7,6 +7,18 @@ import {
 
 type Phase = 'select' | 'draft' | 'validator' | 'governor' | 'done'
 
+type ElectionCandidate = {
+  id: string
+  name: string
+  signals: number
+}
+
+function formatBudget(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`
+  return n.toLocaleString()
+}
+
 function votePassed(
   mechanism: ProposalType['voteMechanism'],
   forVotes: number,
@@ -23,14 +35,24 @@ function votePassed(
   return false
 }
 
+function defaultElectionCandidates(): ElectionCandidate[] {
+  return [
+    { id: 'c1', name: 'Candidate 1', signals: 0 },
+    { id: 'c2', name: 'Candidate 2', signals: 0 },
+  ]
+}
+
 export function ValidatorFlow() {
   const [phase, setPhase] = useState<Phase>('select')
   const [selected, setSelected] = useState<ProposalType | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [annualLabsBudgetOp, setAnnualLabsBudgetOp] = useState(45_000_000)
+  const [electionCandidates, setElectionCandidates] = useState<
+    ElectionCandidate[]
+  >([])
   const [approvals, setApprovals] = useState(0)
   const [dabOk, setDabOk] = useState(false)
-  const [approvalSignals, setApprovalSignals] = useState(0)
   const [forVotes, setForVotes] = useState(2_000_000)
   const [againstVotes, setAgainstVotes] = useState(450_000)
   const [vetoed, setVetoed] = useState(false)
@@ -40,9 +62,12 @@ export function ValidatorFlow() {
     setSelected(p)
     setTitle(p.name.length > 56 ? `${p.name.slice(0, 56)}…` : p.name)
     setDescription(p.purpose)
+    setAnnualLabsBudgetOp(45_000_000)
+    setElectionCandidates(
+      p.voteMechanism === 'approval' ? defaultElectionCandidates() : [],
+    )
     setApprovals(0)
     setDabOk(false)
-    setApprovalSignals(0)
     setForVotes(2_000_000)
     setAgainstVotes(450_000)
     setVetoed(false)
@@ -61,21 +86,66 @@ export function ValidatorFlow() {
     setPhase('validator')
     setApprovals(0)
     setDabOk(false)
-    setApprovalSignals(0)
+    setElectionCandidates((rows) => rows.map((c) => ({ ...c, signals: 0 })))
   }
+
+  const addCandidate = () => {
+    setElectionCandidates((prev) => [
+      ...prev,
+      {
+        id: `c-${Date.now()}`,
+        name: `Candidate ${prev.length + 1}`,
+        signals: 0,
+      },
+    ])
+  }
+
+  const removeCandidate = (id: string) => {
+    setElectionCandidates((prev) =>
+      prev.length <= 1 ? prev : prev.filter((c) => c.id !== id),
+    )
+  }
+
+  const updateCandidateName = (id: string, name: string) => {
+    setElectionCandidates((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, name } : c)),
+    )
+  }
+
+  const bumpCandidateSignals = (id: string, cap: number) => {
+    setElectionCandidates((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? { ...c, signals: Math.min(c.signals + 1, cap) }
+          : c,
+      ),
+    )
+  }
+
+  const fillCandidateSignals = (id: string, cap: number) => {
+    setElectionCandidates((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, signals: cap } : c)),
+    )
+  }
+
+  const electionValidatorReady = useMemo(() => {
+    if (!selected || selected.voteMechanism !== 'approval') return true
+    const need = selected.approvalSignalsNeeded
+    return (
+      electionCandidates.length > 0 &&
+      electionCandidates.every((c) => c.signals >= need)
+    )
+  }, [selected, electionCandidates])
 
   const validatorReady = useMemo(() => {
     if (!selected) return false
     if (selected.requiresDab && !dabOk) return false
     if (selected.requiredApprovals > 0 && approvals < selected.requiredApprovals)
       return false
-    if (
-      selected.voteMechanism === 'approval' &&
-      approvalSignals < selected.approvalSignalsNeeded
-    )
+    if (selected.voteMechanism === 'approval' && !electionValidatorReady)
       return false
     return true
-  }, [selected, dabOk, approvals, approvalSignals])
+  }, [selected, dabOk, approvals, electionValidatorReady])
 
   const forwardToGovernor = () => {
     if (!validatorReady) return
@@ -97,6 +167,9 @@ export function ValidatorFlow() {
     }
     setPhase('done')
   }
+
+  const isSetAllowance = selected?.id === 'set-allowance'
+  const isElection = selected?.voteMechanism === 'approval'
 
   return (
     <div className="grid gap-12 lg:grid-cols-12 lg:items-start">
@@ -167,7 +240,101 @@ export function ValidatorFlow() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Short description for reviewers"
             />
+
+            {isSetAllowance && (
+              <div className="mt-6 rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4">
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-zinc-600">
+                    Annual Labs budget (OP)
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={100_000}
+                    value={annualLabsBudgetOp}
+                    onChange={(e) =>
+                      setAnnualLabsBudgetOp(
+                        Math.max(0, Number(e.target.value) || 0),
+                      )
+                    }
+                    className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 font-mono text-base text-zinc-900 outline-none ring-zinc-900/10 focus:ring-4"
+                  />
+                  <p className="mt-2 text-xs leading-relaxed text-zinc-600">
+                    Illustrative parameter for{' '}
+                    <span className="font-medium text-zinc-800">
+                      Set allowance (annual Labs budget)
+                    </span>
+                    . Spec: proposal sets annual Labs budget within agreed range
+                    limits; four delegate approvals and voting-cycle enforcement
+                    apply before the Governor.
+                  </p>
+                  <p className="mt-2 font-mono text-sm text-zinc-700">
+                    ≈ {formatBudget(annualLabsBudgetOp)} OP / year
+                  </p>
+                </label>
+              </div>
+            )}
+
+            {isElection && (
+              <div className="mt-6 rounded-2xl border border-emerald-200/80 bg-emerald-50/40 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-zinc-900">
+                    Candidates
+                  </p>
+                  <button
+                    type="button"
+                    onClick={addCandidate}
+                    className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-50"
+                  >
+                    Add candidate
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-zinc-600">
+                  Spec:{' '}
+                  {selected.approvalSignalsNeeded} approval signals per
+                  candidate (Security Council: 8, DAB: 4). Each nominee needs
+                  enough on-chain signals before forwarding.
+                </p>
+                <ul className="mt-4 space-y-3">
+                  {electionCandidates.map((c, idx) => (
+                    <li
+                      key={c.id}
+                      className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 bg-white p-3"
+                    >
+                      <span className="text-xs font-medium text-zinc-400">
+                        {idx + 1}.
+                      </span>
+                      <input
+                        value={c.name}
+                        onChange={(e) =>
+                          updateCandidateName(c.id, e.target.value)
+                        }
+                        className="min-w-[8rem] flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-zinc-900/15"
+                        placeholder="Name or address"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeCandidate(c.id)}
+                        disabled={electionCandidates.length <= 1}
+                        className="rounded-lg border border-zinc-200 px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <dl className="mt-6 grid gap-3 rounded-2xl bg-zinc-50 p-4 text-sm">
+              {isSetAllowance && (
+                <div className="flex justify-between gap-4 border-b border-zinc-200/80 pb-3">
+                  <dt className="text-zinc-500">Annual budget (draft)</dt>
+                  <dd className="text-right font-mono font-semibold text-zinc-900">
+                    {formatBudget(annualLabsBudgetOp)} OP
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between gap-4">
                 <dt className="text-zinc-500">Who can initiate</dt>
                 <dd className="text-right text-zinc-900">{selected.initiator}</dd>
@@ -202,6 +369,11 @@ export function ValidatorFlow() {
               <p className="mt-2 text-base font-semibold text-zinc-900">
                 {title}
               </p>
+              {isSetAllowance && (
+                <p className="mt-2 font-mono text-sm text-zinc-700">
+                  Annual Labs budget: {formatBudget(annualLabsBudgetOp)} OP
+                </p>
+              )}
               <ol className="mt-6 flex flex-wrap gap-2 text-xs font-medium text-zinc-600">
                 {[
                   'Submitted',
@@ -286,45 +458,58 @@ export function ValidatorFlow() {
 
                 {selected.voteMechanism === 'approval' && (
                   <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-semibold text-zinc-900">
-                          Candidate support signals
-                        </p>
-                        <p className="mt-1 text-xs text-zinc-600">
-                          Election path needs multiple on-chain approvals per
-                          candidate before tallying.
-                        </p>
-                      </div>
-                      <span className="font-mono text-lg font-semibold text-zinc-900">
-                        {approvalSignals}/{selected.approvalSignalsNeeded}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setApprovalSignals((x) =>
-                            Math.min(
-                              x + 1,
-                              selected.approvalSignalsNeeded,
-                            ),
-                          )
-                        }
-                        className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-900 hover:bg-zinc-50"
-                      >
-                        +1 signal
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setApprovalSignals(selected.approvalSignalsNeeded)
-                        }
-                        className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
-                      >
-                        Meet threshold
-                      </button>
-                    </div>
+                    <p className="text-sm font-semibold text-zinc-900">
+                      Candidate support signals (per nominee)
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-600">
+                      Each candidate needs {selected.approvalSignalsNeeded}{' '}
+                      signals before forwarding (
+                      {selected.id === 'elect-sc'
+                        ? 'Security Council'
+                        : 'Dev Advisory Board'}{' '}
+                      path).
+                    </p>
+                    <ul className="mt-4 space-y-3">
+                      {electionCandidates.map((c) => (
+                        <li
+                          key={c.id}
+                          className="flex flex-col gap-2 rounded-xl border border-zinc-100 bg-zinc-50/80 p-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <span className="text-sm font-medium text-zinc-900">
+                            {c.name || 'Unnamed candidate'}
+                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-sm font-semibold text-zinc-900">
+                              {c.signals}/{selected.approvalSignalsNeeded}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                bumpCandidateSignals(
+                                  c.id,
+                                  selected.approvalSignalsNeeded,
+                                )
+                              }
+                              className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-zinc-50"
+                            >
+                              +1 signal
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                fillCandidateSignals(
+                                  c.id,
+                                  selected.approvalSignalsNeeded,
+                                )
+                              }
+                              className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800"
+                            >
+                              Meet threshold
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
@@ -354,6 +539,11 @@ export function ValidatorFlow() {
             <p className="mt-2 text-base font-semibold text-zinc-900">
               {title}
             </p>
+            {isSetAllowance && (
+              <p className="mt-2 font-mono text-sm text-zinc-600">
+                Annual Labs budget: {formatBudget(annualLabsBudgetOp)} OP
+              </p>
+            )}
 
             {selected.voteMechanism === 'optimistic' && (
               <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
@@ -434,11 +624,17 @@ export function ValidatorFlow() {
                   Approval voting
                 </p>
                 <p className="mt-1 text-xs text-zinc-600">
-                  Validator already ensured enough candidate signals (
-                  {selected.approvalSignalsNeeded}). The Governor records
-                  preference per candidate—this preview collapses that into a
-                  single pass/fail once forwarded.
+                  Validator confirmed {selected.approvalSignalsNeeded} signals per
+                  candidate for {electionCandidates.length} nominee
+                  {electionCandidates.length !== 1 ? 's' : ''}. Governor records
+                  preferences per candidate (approval-style tally)—this preview
+                  completes with a single outcome after forwarding.
                 </p>
+                <ul className="mt-3 space-y-1 text-xs text-zinc-700">
+                  {electionCandidates.map((c) => (
+                    <li key={c.id}>• {c.name || 'Unnamed candidate'}</li>
+                  ))}
+                </ul>
               </div>
             )}
 

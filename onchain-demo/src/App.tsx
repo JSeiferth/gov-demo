@@ -50,7 +50,7 @@ export default function App() {
                   : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
               }`}
             >
-              Proposal Validator
+              Onchain proposals
             </button>
           </nav>
 
@@ -132,7 +132,7 @@ export default function App() {
             <section className="border-b border-zinc-200 bg-white">
               <div className="mx-auto max-w-6xl px-4 py-16 md:px-6 md:py-20">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                  Proposal Validator
+                  Onchain proposals
                 </p>
                 <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-zinc-900 md:text-5xl md:leading-[1.1]">
                   Walk through submission, approval gates, and Governor votes.
@@ -215,7 +215,7 @@ export default function App() {
               </p>
             </div>
             <p className="text-xs text-zinc-400">
-              Proposal Validator · Treasury vesting · 2026 internal demo
+              Onchain proposals · Treasury vesting · 2026 internal demo
             </p>
           </div>
         </div>
